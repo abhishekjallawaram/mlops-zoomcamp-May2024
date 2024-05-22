@@ -1,8 +1,8 @@
-## MLOPS Zoomcamp 2024
+# MLOPS Zoomcamp 2024
 
-# Submission Checklist
+## Submission Checklist
 
-## Homework
+### Homework
 
 - [x] **Homework 1: Introduction**
   - Due: 23 May 2024 19:00
@@ -28,7 +28,7 @@
   - Due: 24 June 2024 19:00
   - Status: [ ] Open / [ ] Submitted / [x] Closed
 
-## Projects
+### Projects
 
 - [ ] **Project attempt 1**
   - Due: 15 July 2024 19:00
