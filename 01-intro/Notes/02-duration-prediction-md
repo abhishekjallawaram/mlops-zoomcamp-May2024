@@ -1,0 +1,228 @@
+# Duration Prediction
+
+
+- [Duration Prediction](#duration-prediction)
+  - [Downloading dataset](#downloading-dataset)
+  - [Import data](#import-data)
+  - [Analyse data](#analyse-data)
+  - [Filter the dataset](#filter-the-dataset)
+  - [Calculate trip duration](#calculate-trip-duration)
+  - [Check the distribution of trip duration](#check-the-distribution-of-trip-duration)
+  - [Feature selection](#feature-selection)
+  - [Onehot encoding / Dictionary Vectorizer](#onehot-encoding--dictionary-vectorizer)
+  - [Setting the target variable](#setting-the-target-variable)
+  - [Training: Linear Regression](#training-linear-regression)
+  - [Visualise the prediction](#visualise-the-prediction)
+  - [Evaluate the model on the training dataset](#evaluate-the-model-on-the-training-dataset)
+  - [What if there are no categorical variables](#what-if-there-are-no-categorical-variables)
+  - [Training: Lasso Regression Model](#training-lasso-regression-model)
+  - [Training: Ridge Regression Model](#training-ridge-regression-model)
+  - [Change input features](#change-input-features)
+  - [Hyperparameter tuning](#hyperparameter-tuning)
+  - [Save the model](#save-the-model)
+  - [Code restructuring](#code-restructuring)
+  - [Evaluate model on validation dataset](#evaluate-model-on-validation-dataset)
+
+
+
+## Downloading dataset
+
+https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+We will use data from 2024. Specifically, we will use the green taxi data for January and February.
+
+1. Create a folder called `Data`.
+2. Download the data for January and February 2021:
+   ```python
+   cd Data
+   # Download the datasets
+   !wget https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2024-01.parquet
+   !wget https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2024-02.parquet
+  ```
+## Import data
+
+Read the data using pandas:
+```python
+import pandas as pd
+
+df_january = pd.read_parquet('../Data/green_tripdata_2024-01.parquet.parquet')
+df_february = pd.read_parquet('../Data/green_tripdata_2024-02.parquet.parquet')
+```
+
+## Analyse data
+
+Examine the dataset to understand its structure and contents:
+```python
+print(df_january.head())
+print(df_january.info())
+```
+
+## Filter the dataset
+
+Filter the dataset to focus on the necessary columns and records:
+```python
+df_january = df_january[df_january['trip_type'] == 2]
+```
+
+## Calculate trip duration
+Calculate the trip duration:
+```python
+df_january['pickup_datetime'] = pd.to_datetime(df_january['pickup_datetime'])
+df_january['dropoff_datetime'] = pd.to_datetime(df_january['dropoff_datetime'])
+df_january['duration'] = (df_january['dropoff_datetime'] - df_january['pickup_datetime']).dt.total_seconds() / 60
+```
+
+## Check the distribution of trip duration
+
+Check the distribution to understand the data:
+```python
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.histplot(df_january['duration'], bins=50)
+plt.show()
+```
+
+## Feature selection
+Select features for the model:
+```python
+features = ['pickup_location_id', 'dropoff_location_id', 'trip_distance']
+```
+
+## Onehot encoding / Dictionary Vectorizer
+Use dictionary vectorizer for onehot encoding:
+```python
+from sklearn.feature_extraction import DictVectorizer
+
+dv = DictVectorizer(sparse=False)
+train_dicts = df_january[features].to_dict(orient='records')
+X_train = dv.fit_transform(train_dicts)
+```
+
+## Setting the target variable
+Set the target variable:
+```python
+y_train = df_january['duration'].values
+```
+
+## Training: Linear Regression
+Train a linear regression model:
+```python
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(X_train, y_train)
+```
+
+## Visualise the prediction
+Visualize predictions versus actual values:
+```python
+y_pred = model.predict(X_train)
+
+plt.figure(figsize=(10, 6))
+sns.histplot(y_pred, color='blue', label='Predictions', kde=True)
+sns.histplot(y_train, color='orange', label='Actual', kde=True)
+plt.legend()
+plt.show()
+```
+
+## Evaluate the model on the training dataset
+Evaluate the model:
+```python
+from sklearn.metrics import mean_squared_error
+
+rmse = mean_squared_error(y_train, y_pred, squared=False)
+print(f'RMSE: {rmse}')
+```
+
+## What if there are no categorical variables
+Train the model without categorical variables and evaluate:
+```python
+features_no_cat = ['trip_distance']
+X_train_no_cat = df_january[features_no_cat].values
+
+model_no_cat = LinearRegression()
+model_no_cat.fit(X_train_no_cat, y_train)
+
+y_pred_no_cat = model_no_cat.predict(X_train_no_cat)
+rmse_no_cat = mean_squared_error(y_train, y_pred_no_cat, squared=False)
+print(f'RMSE without categorical variables: {rmse_no_cat}')
+```
+
+## Training: Lasso Regression Model
+Train a Lasso regression model:
+```python
+from sklearn.linear_model import Lasso
+
+lasso_model = Lasso(alpha=0.1)
+lasso_model.fit(X_train, y_train)
+```
+
+## Training: Ridge Regression Model
+Train a Ridge regression model:
+```python
+from sklearn.linear_model import Ridge
+
+ridge_model = Ridge(alpha=1.0)
+ridge_model.fit(X_train, y_train)
+```
+
+## Change input features
+Add interaction features:
+```python
+df_january['pickup_dropoff_pair'] = df_january['pickup_location_id'].astype(str) + '_' + df_january['dropoff_location_id'].astype(str)
+features = ['pickup_dropoff_pair', 'trip_distance']
+train_dicts = df_january[features].to_dict(orient='records')
+X_train = dv.fit_transform(train_dicts)
+```
+
+## Hyperparameter tuning
+Tune hyperparameters for the Lasso model:
+```python
+from sklearn.model_selection import GridSearchCV
+
+param_grid = {'alpha': [0.01, 0.1, 1.0]}
+grid_search = GridSearchCV(Lasso(), param_grid, cv=5, scoring='neg_mean_squared_error')
+grid_search.fit(X_train, y_train)
+print(grid_search.best_params_)
+```
+
+## Save the model
+Save the trained model:
+```python
+import pickle
+
+with open('models/linear_regression_model.pkl', 'wb') as f_out:
+    pickle.dump((dv, model), f_out)
+```
+
+## Code restructuring
+Refactor code into functions:
+```python
+def load_data(filepath):
+    df = pd.read_parquet(filepath)
+    df['pickup_datetime'] = pd.to_datetime(df['pickup_datetime'])
+    df['dropoff_datetime'] = pd.to_datetime(df['dropoff_datetime'])
+    df['duration'] = (df['dropoff_datetime'] - df['pickup_datetime']).dt.total_seconds() / 60
+    return df
+
+def train_model(df, features):
+    train_dicts = df[features].to_dict(orient='records')
+    X_train = dv.fit_transform(train_dicts)
+    y_train = df['duration'].values
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    return model
+```
+
+## Evaluate model on validation dataset
+Load and evaluate on validation data:
+```python
+df_val = load_data('data/february_data.parquet')
+y_val = df_val['duration'].values
+val_dicts = df_val[features].to_dict(orient='records')
+X_val = dv.transform(val_dicts)
+y_pred_val = model.predict(X_val)
+rmse_val = mean_squared_error(y_val, y_pred_val, squared=False)
+print(f'Validation RMSE: {rmse_val}')
+```
